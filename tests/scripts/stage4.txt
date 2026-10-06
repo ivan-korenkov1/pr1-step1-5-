@@ -1,0 +1,25 @@
+# Этап 4: команды ls, cd, cat, history (запускать с build/deep.zip).
+# ls: текущий каталог, путь к каталогу, путь к файлу
+ls
+ls level1
+ls level1/file1.txt
+# cd: относительный путь, "..", абсолютный путь, "~", без аргумента
+cd level1
+ls
+cd level2/level3
+ls
+cd ..
+cd /level1/level2/level3
+cd ~/level1
+cd
+# cat: один файл, несколько файлов, путь с ".."
+cat root.txt
+cat level1/file1.txt level1/level2/file2.txt
+cd level1/level2
+cat ../../root.txt
+cd
+# history: список введённых команд
+history
+# Ошибка в конце: несуществующий файл останавливает скрипт.
+cat nope.txt
+exit
