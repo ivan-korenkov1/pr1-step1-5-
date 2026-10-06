@@ -1,0 +1,35 @@
+# Этап 5: команды chown и vfs-load (запускать из корня проекта
+# с build/deep.zip). Изменения VFS делаются только в памяти.
+ls -l
+# chown: только владелец
+chown alice root.txt
+ls -l root.txt
+# chown: владелец и группа
+chown bob:staff level1
+ls -l
+# chown -R: рекурсивно для каталога и всего его содержимого
+chown -R carol:dev level1
+ls -l level1
+ls -l level1/level2/level3
+# chown: только группа
+chown :admins root.txt
+ls -l root.txt
+# chown: несколько файлов сразу, путь с ".."
+cd level1/level2
+chown eve ../../root.txt file2.txt
+ls -l
+cd
+ls -l root.txt
+# vfs-load: загрузка другой VFS, текущий каталог сбрасывается
+cd level1
+vfs-load build/several.zip
+conf-dump
+ls -l
+cat docs/todo.txt
+# vfs-load того же deep.zip: изменения chown пропали,
+# так как архив на диске не менялся
+vfs-load build/deep.zip
+ls -l
+# Ошибка в конце: повреждённый архив останавливает скрипт.
+vfs-load build/broken.zip
+exit

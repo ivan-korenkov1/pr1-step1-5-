@@ -18,10 +18,11 @@ UNIX-подобной ОС. Приглашение к вводу строитс�
 
 - класс `ZipVFS` - виртуальная файловая система в памяти:
   словарь файлов `files` (путь -> содержимое), множество
-  каталогов `dirs` и текущий каталог `cwd`; методы `ls`, `cd`,
-  `cat` работают с путями через `full_path`;
-- `cmd_ls`, `cmd_cd`, `cmd_cat`, `cmd_history` - проверка
-  аргументов команд;
+  каталогов `dirs`, текущий каталог `cwd` и владельцы `owners`;
+  методы `ls`, `cd`, `cat`, `chown` работают с путями через
+  `full_path`;
+- `cmd_ls`, `cmd_cd`, `cmd_cat`, `cmd_chown`, `cmd_vfs_load`,
+  `cmd_history` - проверка аргументов команд;
 - `decode(data)` - текст файла или base64 для двоичных данных;
 - `load_vfs(path)` - загрузка VFS с понятными сообщениями об ошибках;
 - `get_prompt()` - формирует приглашение;
@@ -38,6 +39,8 @@ python3 src/emulator.py [путь_к_VFS] [путь_к_стартовому_ск
 ```
 
 При запуске печатаются все заданные параметры (строки `[debug]`).
+Чтобы запустить стартовый скрипт без VFS, вместо пути к VFS
+передайте пустую строку: `python3 src/emulator.py "" script.txt`.
 
 ## Стартовый скрипт
 
@@ -64,12 +67,19 @@ python3 src/emulator.py [путь_к_VFS] [путь_к_стартовому_ск
 
 | Команда | Описание |
 |---|---|
-| `ls [путь]` | содержимое каталога (по умолчанию текущего) или имя файла |
+| `ls [-l] [путь]` | содержимое каталога или имя файла; `-l` - тип, владелец, группа |
 | `cd [путь]` | смена текущего каталога, без аргумента - переход в корень `~` |
 | `cat файл...` | содержимое одного или нескольких файлов |
 | `history` | пронумерованный список введённых команд |
+| `chown [-R] владелец[:группа] путь...` | смена владельца и группы (`user`, `user:group`, `:group`), `-R` - рекурсивно |
+| `vfs-load путь` | загрузка новой VFS из ZIP-архива на диске |
 | `conf-dump` | параметры эмулятора в формате `ключ=значение` |
 | `exit` | выход из эмулятора |
+
+`chown` меняет данные только в памяти: после `vfs-load` того же
+архива изменения пропадают. Если `vfs-load` завершился ошибкой,
+остаётся прежняя VFS. После загрузки владелец всех файлов -
+текущий пользователь ОС.
 
 Пути могут быть абсолютными (`/level1`), относительными (`level2`),
 содержать `.`, `..` и `~` (корень VFS).
@@ -91,6 +101,7 @@ bash tests/test_params.sh           # параметры запуска (эта�
 bash tests/test_params_errors.sh    # ошибки запуска и скрипта (этап 2)
 bash tests/test_vfs.sh              # разные варианты VFS (этап 3)
 bash tests/test_stage4.sh           # ls, cd, cat, history (этап 4)
+bash tests/test_stage5.sh           # chown, vfs-load (этап 5)
 ```
 
 ## Пример
@@ -111,7 +122,14 @@ ivan@macbook:~/level1/level2$ cat ../file1.txt
 Файл на 1 уровне.
 ivan@macbook:~/level1/level2$ cd file2.txt
 cd: file2.txt: Не каталог
-ivan@macbook:~/level1/level2$ cd
+ivan@macbook:~/level1/level2$ chown -R alice:dev ~/level1
+ivan@macbook:~/level1/level2$ ls -l
+- alice    dev      file2.txt
+d alice    dev      level3
+ivan@macbook:~/level1/level2$ vfs-load build/minimal.zip
+VFS загружена из build/minimal.zip: файлов 1
+ivan@macbook:~$ ls
+hello.txt
 ivan@macbook:~$ foo
 foo: команда не найдена
 ivan@macbook:~$ exit
