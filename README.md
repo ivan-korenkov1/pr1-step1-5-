@@ -9,8 +9,17 @@
 UNIX-подобной ОС. Приглашение к вводу строится по реальным данным
 ОС: `имя_пользователя@имя_компьютера:~$`.
 
+Эмулятор работает с виртуальной файловой системой (VFS), которая
+загружается из ZIP-архива. Архив целиком читается в память и не
+распаковывается на диск.
+
 Весь код находится в одном файле `src/emulator.py`:
 
+- класс `ZipVFS` - виртуальная файловая система в памяти:
+  словарь файлов `files` (путь -> содержимое), множество
+  каталогов `dirs` и текущий каталог `cwd`;
+- `decode(data)` - текст файла или base64 для двоичных данных;
+- `load_vfs(path)` - загрузка VFS с понятными сообщениями об ошибках;
 - `get_prompt()` - формирует приглашение;
 - `act(line)` - разбирает строку на команду и аргументы по пробелам
   и выполняет команду;
@@ -34,6 +43,19 @@ python3 src/emulator.py [путь_к_VFS] [путь_к_стартовому_ск
 На первой ошибке скрипт останавливается, эмулятор завершается
 с кодом 1. Если скрипт закончился без `exit`, дальше работает REPL.
 
+## Тестовые VFS
+
+Содержимое тестовых VFS лежит обычными папками в `vfs/`, а архивы
+собирает скрипт `tests/make_zips.sh` в папку `build/` (архивы не
+хранятся в git):
+
+| Архив | Содержимое |
+|---|---|
+| `build/minimal.zip` | один файл |
+| `build/several.zip` | несколько файлов и каталогов, двоичный `bin/data.bin` |
+| `build/deep.zip` | 3 уровня вложенности `level1/level2/level3` |
+| `build/broken.zip` | повреждённый архив для проверки ошибок |
+
 ## Команды
 
 | Команда | Описание |
@@ -49,21 +71,25 @@ python3 src/emulator.py [путь_к_VFS] [путь_к_стартовому_ск
 ## Запуск и тесты
 
 ```bash
-./run.sh                    # или python3 src/emulator.py
+bash tests/make_zips.sh                       # собрать архивы VFS
+./run.sh build/deep.zip                       # запуск с VFS
+./run.sh build/deep.zip tests/scripts/stage3.txt
 bash tests/test_repl.sh             # REPL (этап 1)
 bash tests/test_params.sh           # параметры запуска (этап 2)
 bash tests/test_params_errors.sh    # ошибки запуска и скрипта (этап 2)
+bash tests/test_vfs.sh              # разные варианты VFS (этап 3)
 ```
 
 ## Пример
 
 ```
-$ python3 src/emulator.py vfs.zip
+$ python3 src/emulator.py build/deep.zip
 [debug] Параметры запуска:
-[debug]   vfs = vfs.zip
+[debug]   vfs = build/deep.zip
 [debug]   script = None
+VFS загружена из build/deep.zip: файлов 4
 ivan@macbook:~$ conf-dump
-vfs=vfs.zip
+vfs=build/deep.zip
 script=None
 ivan@macbook:~$ ls -l
 ls ['-l']

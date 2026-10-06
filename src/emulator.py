@@ -3,11 +3,59 @@
 Запуск: python3 src/emulator.py [путь_к_VFS] [путь_к_скрипту]
 """
 
+import base64
 import getpass
+import io
+import posixpath
 import socket
 import sys
+import zipfile
 
 config = {"vfs": None, "script": None}
+
+
+class ZipVFS:
+    """Виртуальная файловая система: файлы ZIP-архива в памяти."""
+
+    def __init__(self):
+        """Создаёт пустую VFS, в которой есть только корень /."""
+        self.files = {}
+        self.dirs = {"/"}
+        self.cwd = "/"
+
+    def load(self, zip_path):
+        """Читает ZIP-архив в память, не распаковывая его на диск."""
+        with open(zip_path, "rb") as file:
+            data = io.BytesIO(file.read())
+        files = {}
+        dirs = {"/"}
+        with zipfile.ZipFile(data) as archive:
+            for name in archive.namelist():
+                if name.startswith("__MACOSX"):
+                    continue
+                path = "/" + name.rstrip("/")
+                if name.endswith("/"):
+                    dirs.add(path)
+                else:
+                    files[path] = decode(archive.read(name))
+                parent = posixpath.dirname(path)
+                while parent != "/":
+                    dirs.add(parent)
+                    parent = posixpath.dirname(parent)
+        self.files = files
+        self.dirs = dirs
+        self.cwd = "/"
+
+
+def decode(data):
+    """Возвращает текст файла, а для двоичного файла - строку base64."""
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return base64.b64encode(data).decode("ascii")
+
+
+vfs = ZipVFS()
 
 
 def get_prompt():
@@ -36,6 +84,19 @@ def act(line):
         return f"cd {args}"
     else:
         raise ValueError(f"{cmd}: команда не найдена")
+
+
+def load_vfs(path):
+    """Загружает VFS из ZIP-архива; при ошибке выбрасывает ValueError."""
+    try:
+        vfs.load(path)
+    except FileNotFoundError:
+        raise ValueError(f"{path}: файл не найден")
+    except zipfile.BadZipFile:
+        raise ValueError(f"{path}: не является ZIP-архивом")
+    except OSError:
+        raise ValueError(f"{path}: не удалось открыть файл")
+    return f"VFS загружена из {path}: файлов {len(vfs.files)}"
 
 
 def run_script(path):
@@ -87,6 +148,12 @@ def main():
     print("[debug] Параметры запуска:")
     for key, value in config.items():
         print(f"[debug]   {key} = {value}")
+    if config["vfs"]:
+        try:
+            print(load_vfs(config["vfs"]))
+        except ValueError as error:
+            print(f"Ошибка загрузки VFS: {error}")
+            sys.exit(1)
     if config["script"]:
         run_script(config["script"])
     repl()
